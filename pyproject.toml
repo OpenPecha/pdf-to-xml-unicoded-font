@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tibetan-pdf-fix"
+version = "0.1.0"
+description = "Fix missing Tibetan stacked syllables in PDF text extraction using GSUB-derived Unicode mappings"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "MIT"}
+keywords = ["tibetan", "pdf", "unicode", "ocr", "nlp", "fonts"]
+dependencies = [
+    "pymupdf>=1.23.0",
+    "fonttools>=4.0.0",
+]
+
+[project.scripts]
+tibetan-pdf-fix = "tibetan_pdf_fix.extractor:main"
+
+[project.urls]
+Repository = "https://github.com/gangagyatso4364/pdf-to-xml-unicoded-font"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["tibetan_pdf_fix*"]
+
+[tool.setuptools.package-data]
+tibetan_pdf_fix = ["data/*.json"]
