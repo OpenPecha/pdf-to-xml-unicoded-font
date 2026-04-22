@@ -1,0 +1,30 @@
+# Font archive - too large for git (69 MB). Needed only to rebuild reverse_db.json.
+scripts/bodyig.zip
+
+# Generated text extraction outputs (re-run tibetan-pdf-fix to regenerate)
+*.raw.txt
+*.patched.txt
+*.diff.txt
+
+# Keep the example outputs in docs/
+!docs/examples/**/*.raw.txt
+!docs/examples/**/*.patched.txt
+!docs/examples/**/*.diff.txt
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Dev environments
+.venv/
+venv/
+.env
+
+# Editor
+.vscode/
+.idea/
+*.swp
