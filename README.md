@@ -1,19 +1,30 @@
-# tibetan-pdf-fix
+# pdf-cmap-fix
 
-Fix missing or wrong Tibetan stacked syllables in PDF text extraction.
+Fix missing or wrong **PDF `/ToUnicode` CMap** entries so text extraction and
+copy-paste match what you see on the page.  The primary use case is **Tibetan**
+stacked syllables (Monlam, Himalaya, Jomolhari): producers often embed
+incomplete or incorrect Unicode mappings for ligature glyphs.  The same
+mechanism applies to **any** Type0 / Identity-H font that appears in the
+bundled GSUB-derived database (see [Beyond Tibetan](#beyond-tibetan-smoke-test)).
 
-Tibetan PDFs often embed fonts with incomplete or incorrect **ToUnicode CMap**
-entries for stacked syllable glyphs.  Standard extraction tools then silently
-drop subjoined letters — `རྡོ་རྗེ་` becomes `རོ་རེ་` — or insert spurious
-characters.  This tool patches the in-memory CMap using a pre-built database
-derived from the original fonts' GSUB ligature tables.  You can either
-re-extract corrected Unicode text, or write a **new PDF** whose ToUnicode maps
-are fixed so copy-paste and other tools see the right Tibetan.
+## Migration from `tibetan-pdf-fix` (0.1.x)
+
+| Old (removed) | New (0.2.0) |
+|---------------|-------------|
+| PyPI / import `tibetan_pdf_fix` | `pdf_cmap_fix` |
+| CLI `tibetan-pdf-fix` | `pdf-cmap-fix` |
+| `extract_tibetan_pdf(...)` | `extract_pdf_text(...)` |
+| `patch_tibetan_pdf(...)` | `patch_pdf(...)` |
+| *(new)* | `build_tounicode_dict(...)` — merged CMaps as dicts **without** patching PDF bytes |
+| `pip install …` same git URL | package name is now `pdf-cmap-fix` |
+
+There is **no** compatibility shim: update imports and the CLI name.
 
 ## Install
 
 ```bash
 pip install git+https://github.com/gangagyatso4364/pdf-to-xml-unicoded-font.git
+# dev: pip install ".[dev]"  (pytest)
 ```
 
 Requirements: Python 3.8+, [PyMuPDF](https://pymupdf.readthedocs.io/) (fitz),
@@ -24,169 +35,156 @@ Requirements: Python 3.8+, [PyMuPDF](https://pymupdf.readthedocs.io/) (fitz),
 ### Command line
 
 ```bash
-tibetan-pdf-fix document.pdf
+pdf-cmap-fix document.pdf
 # writes: document.raw.txt  document.patched.txt  document.diff.txt
 
-tibetan-pdf-fix doc1.pdf doc2.pdf doc3.pdf
+pdf-cmap-fix doc1.pdf doc2.pdf doc3.pdf
 ```
 
-Write a patched PDF only (same ToUnicode logic as above; no `.txt` files):
+Write a patched PDF only (same ToUnicode logic; no `.txt` files):
 
 ```bash
-tibetan-pdf-fix --patch-pdf document.pdf
+pdf-cmap-fix --patch-pdf document.pdf
 # writes: document.patched.pdf   (input PDF is not overwritten)
 
-tibetan-pdf-fix -p doc1.pdf doc2.pdf   # short form
+pdf-cmap-fix -p doc1.pdf doc2.pdf   # short form
 ```
+
+Dump merged ToUnicode data as JSON (does **not** modify the PDF):
+
+```bash
+pdf-cmap-fix --dump-cmap cmap.json document.pdf
+# multiple PDFs: cmap_doc1.json, cmap_doc2.json, … (stem suffix added)
+```
+
+Large PDFs that embed **many** separate Type0 font objects (e.g. one subset per
+page) can make `--dump-cmap` slow and the JSON large; prefer `build_tounicode_dict`
+in Python if you need to filter by `pdf_font_name` or `changed`.
 
 ### Python API
 
 ```python
-from tibetan_pdf_fix import extract_tibetan_pdf
+from pdf_cmap_fix import extract_pdf_text, patch_pdf, build_tounicode_dict
 
-result = extract_tibetan_pdf("document.pdf")
+result = extract_pdf_text("document.pdf")
 
 print(result["patched"])       # corrected Unicode text
-print(result["stats"])         # {"fonts_seen": 3, "patched": 2, "upgrades": 1583, ...}
-print(result["char_delta"])    # net change in character count
+print(result["stats"])         # fonts_seen, patched, upgrades, …
+print(result["char_delta"])
 
-# Output files are written by default to the same directory as the PDF:
-#   document.raw.txt     — original extraction (before patching)
-#   document.patched.txt — corrected extraction
-#   document.diff.txt    — every changed line
-```
-
-Output to a different directory:
-
-```python
-result = extract_tibetan_pdf("document.pdf", output_dir="/tmp/output")
-```
-
-In-memory only (no files written):
-
-```python
-result = extract_tibetan_pdf("document.pdf", write_files=False)
+cmap = build_tounicode_dict("document.pdf")
+# cmap["fonts"] — list of dicts: existing / merged / overrides per Type0 font
+# cmap["by_font_xref"] — same entries keyed by string xref
+# cmap["stats"] — aggregate counters
 ```
 
 Patch the PDF and return (or write) the corrected document:
 
 ```python
-from tibetan_pdf_fix import patch_tibetan_pdf
-
-result = patch_tibetan_pdf("document.pdf")
-# default: writes document.patched.pdf next to the input
-# result["pdf_bytes"] — patched PDF as bytes
-# result["stats"]     — same shape as extract_tibetan_pdf
-# result["output_path"] — Path written, or None if write_file=False
-
-result = patch_tibetan_pdf("document.pdf", output_path="/tmp/out.pdf")
-result = patch_tibetan_pdf("document.pdf", write_file=False)  # bytes only, no file
+result = patch_pdf("document.pdf")
+# result["pdf_bytes"], result["stats"], result["output_path"]
 ```
 
 ## Supported Fonts
 
-The bundled database (`reverse_db.json`, 2.4 MB) covers **68 Tibetan font
-variants** from three families:
+The bundled `reverse_db.json` (~2.4 MB) ships with **68 Tibetan font variants**
+(Monlam Uni OuChan, Himalaya, Jomolhari, …).  Rebuild and extend it from a
+directory tree (e.g. a clone of [openpecha/tibetan-fonts](https://github.com/openpecha/tibetan-fonts)) — see [Rebuilding the Font Database](#rebuilding-the-font-database).
 
-| Family | Variants |
-|--------|----------|
-| **Monlam Uni OuChan** | OuChan1 through OuChan5 |
-| **Himalaya** | Himalaya-A through Himalaya-N, Himalaya-SN, himalaya0 |
-| **Jomolhari** | Jomolhari |
-| *(others)* | Additional variants in bodyig.zip |
-
-The database is built from **GSUB type-4 ligature rules** in each font, so
-stacked syllables of arbitrary depth are correctly decomposed — not just the
-simple vowel+consonant combinations.
-
-### Font encoding requirements
-
-Only **Type0 / CID / Identity-H** fonts are patched.  These fonts preserve
-the original GID in the PDF, so the database lookup is exact.
-
-**TrueType simple-encoding** fonts (typical of Ghostscript-generated PDFs)
-are currently not patched.  In Ghostscript PDFs the char-codes are
-sequentially assigned by Ghostscript and do not correspond to original font
-GIDs, making reliable lookup impossible without reading the embedded subset's
-glyph order.
+Only **Type0 / CID / Identity-H** fonts are handled (PDF char code = original GID).
+**TrueType simple-encoding** (typical Ghostscript PDFs) is not supported.
 
 ## How It Works
 
-1. For each Tibetan font in the PDF, look up its GID→Unicode mapping in the
-   pre-built `reverse_db.json`.
-2. Parse the PDF's existing ToUnicode CMap for that font.
-3. Replace each entry where the database has a mapping (the database is
-   authoritative — it comes from the font's own GSUB table, not from the PDF
-   creator's heuristics).
-4. Write the corrected CMap back into the in-memory PDF, then either
-   re-extract text (`extract_tibetan_pdf`) or serialise the document to a new
-   PDF file (`patch_tibetan_pdf` / `tibetan-pdf-fix --patch-pdf`).
+1. Match each embedded Type0 font name to an entry in `reverse_db.json`.
+2. Parse the PDF’s existing ToUnicode CMap.
+3. Merge: database replaces entries wherever it has a GID mapping (GSUB is authoritative).
+4. Optionally write streams back (`patch_pdf` / `extract_pdf_text`) or only return dicts (`build_tounicode_dict`).
 
-See [`docs/approach.md`](docs/approach.md) for the full technical explanation.
+See [`docs/approach.md`](docs/approach.md).
 
 ## Example Results
 
 ### TI1751-01-001.pdf — InDesign PDF, 528 pages
 
-```
-Lines changed: 2,540 / 5,361     Char delta: +9,969
-```
-
 | Before (wrong) | After (correct) |
 |----------------|-----------------|
 | `ཀོང་ཡངས་རོལ་བའི་རྣལ་འབོར་པ་` | `ཀློང་ཡངས་རོལ་བའི་རྣལ་འབྱོར་པ་` |
-| `ཀི་ཟབ་གཏེར་` | `ཀྱི་ཟབ་གཏེར་` |
 | `རོ་རེའི་སེ་ཕེང་` | `རྡོ་རྗེའི་སྐྱེ་ཕྲེང་` |
-| `སིང་གསོལ་འདེབས་` | `སྙིང་གསོལ་འདེབས་` |
-| `བིན་རླབས་` | `བྱིན་རླབས་` |
 
 Full output: [`docs/examples/TI1751-01-001/`](docs/examples/TI1751-01-001/)
 
 ### TI1055-01-001.pdf — Word PDF, 528 pages
 
-```
-Lines changed: 10,205 / 11,979    Char delta: -23,725
-```
-
-Word had embedded incorrect multi-character sequences for many vowel glyphs
-(spurious subjoined-ja `ྗ` inserted before every `ོ`):
-
 | Before (wrong) | After (correct) |
 |----------------|-----------------|
 | `བྗོད་གངས་ཅན་` | `བོད་གངས་ཅན་` |
-| `དང་པྗོ་དཔར་སྐྲུན་` | `དང་པོ་དཔར་སྐྲུན་` |
 | `ཐྗོས་བསམ་སྗོམ་གསུམ་` | `ཐོས་བསམ་སྒོམ་གསུམ་` |
-| `མྱིག་འདུན་` | `མིག་འདུན་` |
 
 Full output: [`docs/examples/TI1055-01-001/`](docs/examples/TI1055-01-001/)
 
 ## Rebuilding the Font Database
 
-The pre-built `reverse_db.json` is included in the package.  If you have
-`bodyig.zip` (the source font archive, ~69 MB, not included in this repo),
-you can rebuild it:
+The pre-built `reverse_db.json` lives in `pdf_cmap_fix/data/`.  To rebuild from
+fonts on disk and/or in zip archives:
 
 ```bash
-# Place bodyig.zip in the scripts/ directory, then:
 pip install fonttools
-python scripts/build_reverse_db.py
+# Recursive directory (e.g. OpenPecha font checkout)
+python scripts/build_reverse_db.py --fonts-dir ../tibetan-fonts
+
+# Zip(s) + directory; later sources win on duplicate normalised font names
+python scripts/build_reverse_db.py --zip scripts/bodyig.zip --fonts-dir ../tibetan-fonts-private
+
+# Custom output path
+python scripts/build_reverse_db.py --fonts-dir ./fonts -o ./out/reverse_db.json
 ```
+
+If you omit `--zip` and `--fonts-dir`, the script uses `scripts/bodyig.zip` when
+that file exists.
+
+**Provenance:** record the git commit or date of the font repos you used when
+shipping a regenerated database.
+
+**Bundled `reverse_db.json` (v0.2.x):** the copy shipped in `pdf_cmap_fix/data/`
+contains **68** normalised font keys (Monlam Uni OuChan, Himalaya, Jomolhari,
+and related variants), built from the **bodyig**-style TTF corpus with
+`build_gid_map` (cmap + GSUB type-4). It was **not** regenerated in CI from
+[openpecha/tibetan-fonts](https://github.com/openpecha/tibetan-fonts) for this
+release; to merge OpenPecha fonts, clone that repo and run
+`build_reverse_db.py --fonts-dir …` (optionally with `--zip scripts/bodyig.zip`
+first), then regression-test on `docs/examples/TI1751-01-001` and
+`TI1055-01-001` before replacing the bundled file.
+
+## Beyond Tibetan (smoke test)
+
+The pipeline is **not** Tibetan-specific: any Identity-H Type0 font whose
+glyph IDs match the **full** font used to build `reverse_db.json` can be fixed
+the same way.
+
+**Suggested smoke test:** (1) build a tiny `reverse_db.json` containing one
+Latin font with `fi`/`fl` ligatures (from Google Fonts or similar, OFL).  (2)
+Produce or obtain a small PDF that embeds that font as Type0/Identity-H with a
+wrong ToUnicode for the ligature.  (3) Run `build_tounicode_dict` and confirm
+non-empty `overrides`.  Document the outcome here or in an internal doc — a
+negative result (no matching PDF found) still clarifies scope.
 
 ## Project Structure
 
 ```
-tibetan_pdf_fix/       Python package
-├── extractor.py       Core logic: patch ToUnicode, extract text or emit PDF
+pdf_cmap_fix/            Python package
+├── extractor.py         Patch / extract / build_tounicode_dict / CLI
 └── data/
-    └── reverse_db.json  GID -> Unicode database (bundled)
+    └── reverse_db.json  GID → Unicode (bundled)
 scripts/
-├── build_reverse_db.py  Rebuild database from bodyig.zip
-└── build_glyph_db.py    Legacy alternate builder
+├── font_sources.py      Zip + directory font enumeration
+├── build_reverse_db.py  Rebuild reverse_db.json
+└── build_glyph_db.py    DEPRECATED — use build_reverse_db.py
 docs/
-├── approach.md          Full technical explanation
-└── examples/            Example PDFs and before/after outputs
-    ├── TI1055-01-001/   Word PDF (.pdf, .raw.txt, .patched.txt, .diff.txt)
-    └── TI1751-01-001/   InDesign PDF (.pdf, .raw.txt, .patched.txt, .diff.txt)
+├── approach.md
+├── blog.md              Link / notes for the public blog draft (Google Doc)
+└── examples/            Example PDFs and outputs
+tests/                   pytest (optional [dev] install)
 ```
 
 ## License

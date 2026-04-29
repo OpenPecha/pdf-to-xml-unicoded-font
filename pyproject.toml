@@ -3,27 +3,36 @@ requires = ["setuptools>=61", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "tibetan-pdf-fix"
-version = "0.1.0"
-description = "Fix missing Tibetan stacked syllables in PDF text extraction using GSUB-derived Unicode mappings"
+name = "pdf-cmap-fix"
+version = "0.2.0"
+description = "Fix PDF ToUnicode CMaps using GSUB-derived mappings; strong support for Tibetan stacked syllables (Monlam, Himalaya, Jomolhari)"
 readme = "README.md"
 requires-python = ">=3.8"
 license = {text = "MIT"}
-keywords = ["tibetan", "pdf", "unicode", "ocr", "nlp", "fonts"]
+keywords = ["pdf", "unicode", "tibetan", "fonts", "tounicode", "cmap", "nlp"]
 dependencies = [
     "pymupdf>=1.23.0",
     "fonttools>=4.0.0",
 ]
 
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+]
+
 [project.scripts]
-tibetan-pdf-fix = "tibetan_pdf_fix.extractor:main"
+pdf-cmap-fix = "pdf_cmap_fix.extractor:main"
 
 [project.urls]
 Repository = "https://github.com/gangagyatso4364/pdf-to-xml-unicoded-font"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["tibetan_pdf_fix*"]
+include = ["pdf_cmap_fix*"]
 
 [tool.setuptools.package-data]
-tibetan_pdf_fix = ["data/*.json"]
+pdf_cmap_fix = ["data/*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

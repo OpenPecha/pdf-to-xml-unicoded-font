@@ -1,4 +1,11 @@
-"""Build a glyph database from all TTF fonts inside bodyig.zip.
+"""DEPRECATED — use ``build_reverse_db.py`` instead.
+
+This script produced ``glyph_db.json`` with a different schema and is not used
+by the ``pdf_cmap_fix`` runtime.  Kept only for historical reference.
+
+---
+
+Build a glyph database from all TTF fonts inside bodyig.zip.
 
 Uses recursive GSUB ligature decomposition so that stacked Tibetan syllables
 (e.g. GID for རྐྱུ) map to the full Unicode sequence U+0F62 U+0F90 U+0FB1 U+0F74,
