@@ -1,34 +1,30 @@
 """
 Build the reverse glyph matching database.
 
-For each font in bodyig.zip, derives:
+For each font (from zip archives and/or recursive directories), derives:
   GID -> correct Unicode sequence
 
 by recursively decomposing GSUB ligature rules.
-This is the REVERSE of normal shaping (Unicode -> GID).
 
 Usage
 -----
-    Place bodyig.zip in the scripts/ directory, then run:
+    python scripts/build_reverse_db.py --fonts-dir ../tibetan-fonts
+    python scripts/build_reverse_db.py --zip scripts/bodyig.zip
+    python scripts/build_reverse_db.py --zip a.zip --fonts-dir ../fonts --output out.json
 
-        python scripts/build_reverse_db.py
+If no --zip / --fonts-dir is given, uses scripts/bodyig.zip when that file exists.
 
-    Output is written to tibetan_pdf_fix/data/reverse_db.json.
+Duplicate normalised font keys: later sources win (overwrite); a warning is printed.
 
-Output format
--------------
-{
-  "normalisedfontstemname": {   # all lowercase, alphanumeric only
-    "1234": "ཀལ",               # GID (str) -> unicode sequence
-    ...
-  }
-}
-
-Note: bodyig.zip (69 MB) is not included in the repository.
-The pre-built reverse_db.json is shipped with the package.
+Output is written to pdf_cmap_fix/data/reverse_db.json by default.
 """
 from __future__ import annotations
-import json, zipfile, io, sys, re
+
+import argparse
+import io
+import json
+import re
+import sys
 from pathlib import Path
 
 try:
@@ -36,14 +32,19 @@ try:
 except ImportError:
     sys.exit("pip install fonttools")
 
-SCRIPTS_DIR = Path(__file__).parent
-ZIP_PATH    = SCRIPTS_DIR / "bodyig.zip"
-OUT_PATH    = SCRIPTS_DIR.parent / "tibetan_pdf_fix" / "data" / "reverse_db.json"
+SCRIPTS_DIR = Path(__file__).resolve().parent
+if str(SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_DIR))
+
+from font_sources import iter_fonts_from_dir, iter_fonts_from_zip
+REPO_ROOT = SCRIPTS_DIR.parent
+DEFAULT_ZIP = SCRIPTS_DIR / "bodyig.zip"
+DEFAULT_OUT = REPO_ROOT / "pdf_cmap_fix" / "data" / "reverse_db.json"
 
 
 def normalise_name(path_or_name: str) -> str:
     stem = Path(path_or_name).stem
-    return re.sub(r'[^a-z0-9]', '', stem.lower())
+    return re.sub(r"[^a-z0-9]", "", stem.lower())
 
 
 def gsub_lig_rules(font: TTFont) -> dict[str, list[str]]:
@@ -91,39 +92,111 @@ def build_gid_map(font: TTFont) -> dict[int, str]:
     return result
 
 
-def main() -> None:
-    if not ZIP_PATH.exists():
-        sys.exit(f"Not found: {ZIP_PATH}")
+def _process_font(
+    label: str,
+    font: TTFont,
+    db: dict[str, dict[str, str]],
+    seen_keys: dict[str, str],
+) -> None:
+    key = normalise_name(label)
+    short = Path(label).name
+    if key in seen_keys:
+        prev = seen_keys[key]
+        print(f"  WARN duplicate key {key!r}: replacing {prev} -> {short}")
+    seen_keys[key] = short
 
+    print(f"  {short} … ", end="", flush=True)
+    try:
+        gid_map = build_gid_map(font)
+        multi = sum(1 for v in gid_map.values() if len(v) > 1)
+        db[key] = {str(gid): uni for gid, uni in gid_map.items()}
+        print(f"{len(gid_map)} GIDs mapped, {multi} multi-char stacks")
+    except Exception as exc:
+        print(f"ERROR: {exc}")
+
+
+def build_database(zips: list[Path], font_dirs: list[Path]) -> dict[str, dict[str, str]]:
     db: dict[str, dict[str, str]] = {}
-    seen_keys: dict[str, str] = {}   # normalised_name -> zip entry (for dedup reporting)
+    seen_keys: dict[str, str] = {}
 
-    with zipfile.ZipFile(ZIP_PATH) as zf:
-        ttf_entries = [e for e in zf.namelist() if e.lower().endswith(".ttf")]
-        print(f"Processing {len(ttf_entries)} TTF files …")
-
-        for entry in ttf_entries:
-            key = normalise_name(entry)
-            short = Path(entry).name
-            if key in seen_keys:
-                print(f"  SKIP (dup) {short}")
-                continue
-            seen_keys[key] = entry
-
-            print(f"  {short} … ", end="", flush=True)
+    for zp in zips:
+        if not zp.is_file():
+            print(f"SKIP (not a file): {zp}", file=sys.stderr)
+            continue
+        print(f"\n== Zip: {zp} ==")
+        for entry, data in iter_fonts_from_zip(zp):
             try:
-                data = zf.read(entry)
                 font = TTFont(io.BytesIO(data), lazy=False)
-                gid_map = build_gid_map(font)
-                multi = sum(1 for v in gid_map.values() if len(v) > 1)
-                # Store as {str(gid): unicode_str}
-                db[key] = {str(gid): uni for gid, uni in gid_map.items()}
-                print(f"{len(gid_map)} GIDs mapped, {multi} multi-char stacks")
+                _process_font(entry, font, db, seen_keys)
             except Exception as exc:
-                print(f"ERROR: {exc}")
+                print(f"  ERROR {entry}: {exc}")
 
-    OUT_PATH.write_text(json.dumps(db, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(f"\nWrote {OUT_PATH}  ({OUT_PATH.stat().st_size // 1024} KB)")
+    for d in font_dirs:
+        if not d.is_dir():
+            print(f"SKIP (not a directory): {d}", file=sys.stderr)
+            continue
+        print(f"\n== Directory: {d} ==")
+        for path, _ in iter_fonts_from_dir(d):
+            try:
+                font = TTFont(str(path), lazy=False)
+                _process_font(str(path), font, db, seen_keys)
+            except Exception as exc:
+                print(f"  ERROR {path}: {exc}")
+
+    return db
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    p = argparse.ArgumentParser(
+        description="Build GID→Unicode reverse database from TTF/OTF fonts.",
+    )
+    p.add_argument(
+        "--zip",
+        action="append",
+        default=[],
+        type=Path,
+        metavar="PATH",
+        help="Zip file containing fonts (repeatable).",
+    )
+    p.add_argument(
+        "--fonts-dir",
+        action="append",
+        default=[],
+        type=Path,
+        metavar="PATH",
+        help="Directory to scan recursively for .ttf/.otf (repeatable).",
+    )
+    p.add_argument(
+        "-o",
+        "--output",
+        type=Path,
+        default=None,
+        help=f"Output JSON path (default: {DEFAULT_OUT})",
+    )
+    return p.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> None:
+    args = parse_args(argv)
+    zips: list[Path] = list(args.zip)
+    font_dirs: list[Path] = list(args.fonts_dir)
+
+    if not zips and not font_dirs:
+        if DEFAULT_ZIP.is_file():
+            zips = [DEFAULT_ZIP]
+            print(f"No --zip/--fonts-dir; using default {DEFAULT_ZIP}")
+        else:
+            sys.exit(
+                "Provide at least one --zip or --fonts-dir, or place bodyig.zip in scripts/.\n"
+                "Example: python scripts/build_reverse_db.py --fonts-dir ../tibetan-fonts"
+            )
+
+    out_path = args.output or DEFAULT_OUT
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    db = build_database(zips, font_dirs)
+    out_path.write_text(json.dumps(db, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"\nWrote {out_path}  ({out_path.stat().st_size // 1024} KB)")
     print(f"Fonts in DB: {len(db)}")
 
 

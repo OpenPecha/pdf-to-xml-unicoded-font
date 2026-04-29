@@ -1,7 +1,7 @@
 # Font archive - too large for git (69 MB). Needed only to rebuild reverse_db.json.
 scripts/bodyig.zip
 
-# Generated text extraction outputs (re-run tibetan-pdf-fix to regenerate)
+# Generated text extraction outputs (re-run pdf-cmap-fix to regenerate)
 *.raw.txt
 *.patched.txt
 *.diff.txt
@@ -28,3 +28,6 @@ venv/
 .vscode/
 .idea/
 *.swp
+
+# Local agent settings
+.claude/

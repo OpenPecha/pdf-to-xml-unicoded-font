@@ -53,7 +53,7 @@ def decompose(gname):
     return ""                          # unmappable glyph
 ```
 
-The result is stored in `tibetan_pdf_fix/data/reverse_db.json`:
+The result is stored in `pdf_cmap_fix/data/reverse_db.json`:
 
 ```json
 {
@@ -105,12 +105,13 @@ same `reverse_db.json` matching rules):
 
 | Mode | API | CLI | On disk |
 |------|-----|-----|---------|
-| Extract text | `extract_tibetan_pdf` | `tibetan-pdf-fix file.pdf` | Writes `file.raw.txt`, `file.patched.txt`, `file.diff.txt` next to the PDF (or another `output_dir`).  Does **not** change the original PDF. |
-| Emit patched PDF | `patch_tibetan_pdf` | `tibetan-pdf-fix --patch-pdf file.pdf` (alias `-p`) | Writes `file.patched.pdf` by default (or a path you pass).  The original PDF is still untouched. |
+| Extract text | `extract_pdf_text` | `pdf-cmap-fix file.pdf` | Writes `file.raw.txt`, `file.patched.txt`, `file.diff.txt` next to the PDF (or another `output_dir`).  Does **not** change the original PDF. |
+| Emit patched PDF | `patch_pdf` | `pdf-cmap-fix --patch-pdf file.pdf` (alias `-p`) | Writes `file.patched.pdf` by default (or a path you pass).  The original PDF is still untouched. |
+| Dict only (no PDF write) | `build_tounicode_dict` | `pdf-cmap-fix --dump-cmap out.json file.pdf` | Writes JSON with per-font `existing`, `merged`, and `overrides` maps. |
 
 The patched PDF is a normal PDF with corrected ToUnicode streams, so
 copy-paste, search, and downstream extractors that honour ToUnicode will see the
-same corrected Tibetan Unicode as in `extract_tibetan_pdf`'s `patched` string.
+same corrected Tibetan Unicode as in `extract_pdf_text`'s `patched` string.
 
 ### Why "Replace Unconditionally"?
 
@@ -212,14 +213,15 @@ output is shorter but accurate.
 
 ```
 pdf-to-xml-unicoded-font/
-├── tibetan_pdf_fix/          Python package (installed)
+├── pdf_cmap_fix/             Python package (installed)
 │   ├── __init__.py
-│   ├── extractor.py          Patch ToUnicode; text extract or patched-PDF output
+│   ├── extractor.py          Patch ToUnicode; extract; build_tounicode_dict; CLI
 │   └── data/
 │       └── reverse_db.json   Pre-built GID -> Unicode database (2.4 MB)
 ├── scripts/
-│   ├── build_reverse_db.py   Rebuild reverse_db.json (needs bodyig.zip)
-│   └── build_glyph_db.py     Legacy alternate DB builder
+│   ├── font_sources.py       Enumerate fonts from zip and/or directories
+│   ├── build_reverse_db.py   Rebuild reverse_db.json (zip and/or --fonts-dir)
+│   └── build_glyph_db.py     DEPRECATED — use build_reverse_db.py
 ├── docs/
 │   ├── approach.md           This file
 │   └── examples/
@@ -240,14 +242,18 @@ pdf-to-xml-unicoded-font/
 
 ## Rebuilding the Database
 
-If you obtain `bodyig.zip` and place it in `scripts/`, you can regenerate
-`reverse_db.json`:
+Place `bodyig.zip` in `scripts/` and/or pass a checkout of
+[openpecha/tibetan-fonts](https://github.com/openpecha/tibetan-fonts):
 
 ```bash
 pip install fonttools
-python scripts/build_reverse_db.py
+python scripts/build_reverse_db.py --zip scripts/bodyig.zip
+python scripts/build_reverse_db.py --fonts-dir ../tibetan-fonts
+python scripts/build_reverse_db.py --zip scripts/bodyig.zip --fonts-dir ../tibetan-fonts -o pdf_cmap_fix/data/reverse_db.json
 ```
 
-This processes all 70 TTF files in the archive (deduped to 68 unique font
-variants) and writes the updated database to
-`tibetan_pdf_fix/data/reverse_db.json`.
+If you omit `--zip` and `--fonts-dir`, the script defaults to `scripts/bodyig.zip`
+when that file exists.  Duplicate normalised font names: **later** sources
+overwrite earlier ones (with a warning on stderr).
+
+Output defaults to `pdf_cmap_fix/data/reverse_db.json`.
