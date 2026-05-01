@@ -42,6 +42,17 @@ DEFAULT_ZIP = SCRIPTS_DIR / "bodyig.zip"
 DEFAULT_OUT = REPO_ROOT / "pdf_cmap_fix" / "data" / "reverse_db.json"
 
 
+def _configure_stdio_utf8() -> None:
+    """Avoid UnicodeEncodeError when printing font paths on Windows (cp1252)."""
+    for stream in (sys.stdout, sys.stderr):
+        reconf = getattr(stream, "reconfigure", None)
+        if callable(reconf):
+            try:
+                reconf(encoding="utf-8", errors="replace")
+            except Exception:
+                pass
+
+
 def normalise_name(path_or_name: str) -> str:
     stem = Path(path_or_name).stem
     return re.sub(r"[^a-z0-9]", "", stem.lower())
@@ -177,6 +188,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 
 def main(argv: list[str] | None = None) -> None:
+    _configure_stdio_utf8()
     args = parse_args(argv)
     zips: list[Path] = list(args.zip)
     font_dirs: list[Path] = list(args.fonts_dir)

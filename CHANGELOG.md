@@ -2,6 +2,12 @@
 
 ## 0.2.0 — 2026-04-28
 
+### Documentation & data
+
+- Expanded **README**: installation (`pip install git+…`), full Python API reference, CLI quick start, bundled database provenance (build date **2026-04-28**, ZIP sources, update workflow).
+- Added **docs/README.md** (index), **docs/glossary-and-json.md** (terms + JSON formats), **docs/font-inventory.md** (all **962** normalised keys).
+- Bundled **`reverse_db.json`** regenerated from `bodyig.zip`, `tibetan-fonts-main.zip`, and `tibetan-fonts-private-main.zip` (~16 MB).
+
 ### Breaking
 
 - Package renamed from `tibetan-pdf-fix` / `tibetan_pdf_fix` to **`pdf-cmap-fix`** / **`pdf_cmap_fix`** (no shim).
