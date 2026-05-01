@@ -212,7 +212,7 @@ output is shorter but accurate.
 ## File Layout
 
 ```
-pdf-to-xml-unicoded-font/
+pdf-cmap-fix/
 ├── pdf_cmap_fix/             Python package (installed)
 │   ├── __init__.py
 │   ├── extractor.py          Patch ToUnicode; extract; build_tounicode_dict; CLI

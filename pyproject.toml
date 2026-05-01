@@ -24,7 +24,7 @@ dev = [
 pdf-cmap-fix = "pdf_cmap_fix.extractor:main"
 
 [project.urls]
-Repository = "https://github.com/gangagyatso4364/pdf-to-xml-unicoded-font"
+Repository = "https://github.com/OpenPecha/pdf-cmap-fix"
 
 [tool.setuptools.packages.find]
 where = ["."]

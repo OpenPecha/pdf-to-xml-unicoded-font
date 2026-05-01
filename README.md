@@ -2,6 +2,8 @@
 
 Fix missing or wrong **PDF `/ToUnicode` CMap** entries so text extraction and copy-paste match what you see on the page. The primary use case is **Tibetan** stacked syllables (Monlam, Himalaya, Jomolhari): producers often embed incomplete or incorrect Unicode mappings for ligature glyphs. The same mechanism applies to **any** Type0 / Identity-H font present in the bundled GSUB-derived database.
 
+**GitHub:** [OpenPecha/pdf-cmap-fix](https://github.com/OpenPecha/pdf-cmap-fix)
+
 **Documentation:** [docs/README.md](docs/README.md) · [Glossary & JSON formats](docs/glossary-and-json.md) · [Approach](docs/approach.md) · [Font inventory (962 keys)](docs/font-inventory.md)
 
 ---
@@ -31,20 +33,20 @@ Requires **Python 3.8+**, [PyMuPDF](https://pymupdf.readthedocs.io/) (`fitz`), a
 Install the package directly from this repository:
 
 ```bash
-pip install "pdf-cmap-fix @ git+https://github.com/gangagyatso4364/pdf-to-xml-unicoded-font.git"
+pip install "pdf-cmap-fix @ git+https://github.com/OpenPecha/pdf-cmap-fix.git"
 ```
 
 Equivalent shorthand:
 
 ```bash
-pip install git+https://github.com/gangagyatso4364/pdf-to-xml-unicoded-font.git
+pip install git+https://github.com/OpenPecha/pdf-cmap-fix.git
 ```
 
 Editable checkout for development:
 
 ```bash
-git clone https://github.com/gangagyatso4364/pdf-to-xml-unicoded-font.git
-cd pdf-to-xml-unicoded-font
+git clone https://github.com/OpenPecha/pdf-cmap-fix.git
+cd pdf-cmap-fix
 pip install -e ".[dev]"
 ```
 

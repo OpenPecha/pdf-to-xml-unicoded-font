@@ -1,6 +1,9 @@
 """
 Build the reverse glyph matching database.
 
+Repository: https://github.com/OpenPecha/pdf-cmap-fix — see README for font ZIP
+sources and ``Updating reverse_db.json``.
+
 For each font (from zip archives and/or recursive directories), derives:
   GID -> correct Unicode sequence
 
