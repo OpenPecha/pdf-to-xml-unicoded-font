@@ -62,6 +62,10 @@ Each record in `fonts`:
 
 The CLI writes a JSON-serialisable subset: inner maps use **string keys** for GIDs (`"42"` not `42`). Structure mirrors `_serialise_cmap_result`: top-level `fonts` array and `stats`; there is no `by_font_xref` in the dumped file (only in the in-memory Python result).
 
+Rare PDFs expose **lone UTF-16 surrogates** inside ToUnicode mapping strings. Those cannot be stored in a UTF-8 text file as-is; before writing, the CLI replaces surrogate code units with **`U+FFFD`** so the JSON remains valid UTF-8 (search for **`�`** if you need to spot them).
+
+Large PDFs with many Type0 fonts produce **very large** dump files (often tens of millions of lines when **`merged`** repeats full font maps).
+
 ## Related reading
 
 - [approach.md](approach.md) — pipeline and design notes.

@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Documentation
+
+- **approach.md**: Align database scope (**962** keys, multi-ZIP build), supported-fonts narrative, TI1751/TI1055 benchmark metrics, file layout (optional `*.patched.pdf`, `*.cmap-dump.json`), and rebuild commands with root **README**.
+- **glossary-and-json.md**: Clarify **`--dump-cmap`** output size and UTF-8 surrogate sanitisation for rare broken ToUnicode strings.
+
+### CLI / tooling
+
+- **`--dump-cmap`**: Sanitise lone UTF-16 surrogates before writing JSON so dumps succeed on all platforms.
+
 ## 0.2.0 — 2026-04-28
 
 ### Documentation & data

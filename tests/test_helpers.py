@@ -11,6 +11,7 @@ from pdf_cmap_fix.extractor import (
     _merge,
     _normalise_name,
     _parse_tounicode,
+    _sanitise_json_utf8,
     _serialise_cmap_result,
     build_tounicode_dict,
 )
@@ -72,6 +73,11 @@ def test_build_tounicode_roundtrip() -> None:
     back = _parse_tounicode(raw)
     assert back[1] == "A"
     assert back[16] == "བ"
+
+
+def test_sanitise_json_utf8_surrogate() -> None:
+    bad = "\ud800"
+    assert _sanitise_json_utf8({"x": bad}) == {"x": "\ufffd"}
 
 
 def test_serialise_cmap_result_str_keys() -> None:

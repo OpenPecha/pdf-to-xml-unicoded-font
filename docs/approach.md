@@ -32,7 +32,15 @@ In practice, this mapping is frequently wrong or incomplete:
 
 ### Step 1 — Build a Reverse GID Database
 
-For each Tibetan font in the bundled archive (`bodyig.zip`), we:
+The shipped **`pdf_cmap_fix/data/reverse_db.json`** lists **962** normalised
+font keys (~16 MB on disk for the current bundle; see [font-inventory.md](font-inventory.md)).
+It is produced by **`scripts/build_reverse_db.py`** from one or more archives
+and/or directories (see root **README**): in practice **`scripts/bodyig.zip`**,
+**`scripts/tibetan-fonts-main.zip`**, and **`scripts/tibetan-fonts-private-main.zip`**
+are merged **in order**, with **later** inputs overriding earlier entries when
+the normalised font stem collides.
+
+For each font file:
 
 1. Load the font with `fontTools`.
 2. Read the **cmap** table: `codepoint → glyph_name` for atomic characters.
@@ -66,8 +74,9 @@ The result is stored in `pdf_cmap_fix/data/reverse_db.json`:
 }
 ```
 
-The database covers **68 font variants** from Monlam, Himalaya, and Jomolhari
-families (deduped from 70 TTF files in `bodyig.zip`).
+The earliest documentation referred only to **`bodyig.zip`** (Monlam / Himalaya /
+Jomolhari-heavy); the **bundled** database now aggregates many more faces—see
+the full key list in [font-inventory.md](font-inventory.md).
 
 ### Step 2 — Match PDF Font to Database Entry
 
@@ -143,21 +152,11 @@ garbled output.
 
 ## Supported Fonts
 
-The reverse_db covers all fonts in `bodyig.zip`.  Normalised keys (used
-internally for matching):
-
-```
-himalaya            himalayaa           himalayab
-himalayac           himalayad           himalayae
-himalayaf           himalayag           himalayah
-himalayai           himalayaj           himalayak
-himalyal            himalayam           himalayan
-himalayasn          himalaya0           jomolhari
-monlamuniouchan1    monlamuniouchan2    monlamuniouchan3
-monlamuniouchan4    monlamuniouchan5    ...
-```
-
-(Full list: 68 unique font variants.)
+Matching uses **normalised keys** as stored in **`reverse_db.json`** (lowercase
+letters and digits only). The bundled file lists **962** keys—see
+[font-inventory.md](font-inventory.md). Example keys still common in Tibetan
+publications include **`monlamuniouchan2`**, **`himalaya`**, **`jomolhari`**, and
+many others from the combined font ZIPs.
 
 Fonts **not** yet supported (TrueType simple encoding):
 
@@ -170,11 +169,19 @@ Fonts **not** yet supported (TrueType simple encoding):
 
 ### TI1751-01-001.pdf (InDesign, 528 pages)
 
+Metrics below use the **bundled** `reverse_db.json` and current extractor;
+exact counts move slightly if the database or PDF tooling changes.
+
 | Metric | Value |
 |--------|-------|
-| Font | Monlam Uni OuChan2 (Type0/CID) |
-| Lines changed | 2,540 / 5,361 |
-| Char delta | +9,969 |
+| Pages | 528 |
+| Type0 fonts seen (with `/ToUnicode`) | 2,163 |
+| Lines differing (`.diff.txt`, page-banner format) | ~5,295 |
+| Char delta (`patched` − `raw`) | ~+10,093 |
+
+Tibetan body text is largely **Monlam Uni OuChan2**; the publication also embeds
+other Type0/Latin/CJK fonts (Calibri, Himalaya, Dedris, PMingLiU, …)—see the
+**`--dump-cmap`** JSON for per-font names and xref IDs.
 
 Representative fixes:
 
@@ -191,9 +198,10 @@ Representative fixes:
 
 | Metric | Value |
 |--------|-------|
-| Font | Monlam Uni OuChan2 (Type0/CID) |
-| Lines changed | 10,205 / 11,979 |
-| Char delta | -23,725 (shorter = removal of spurious characters) |
+| Pages | 528 |
+| Type0 fonts seen (with `/ToUnicode`) | 4 |
+| Lines differing (`.diff.txt`) | ~10,205 |
+| Char delta | ~−23,725 (shorter = removal of spurious characters) |
 
 Representative fixes:
 
@@ -217,7 +225,7 @@ pdf-cmap-fix/
 │   ├── __init__.py
 │   ├── extractor.py          Patch ToUnicode; extract; build_tounicode_dict; CLI
 │   └── data/
-│       └── reverse_db.json   Pre-built GID -> Unicode database (2.4 MB)
+│       └── reverse_db.json   Pre-built GID → Unicode database (~16 MB; 962 keys)
 ├── scripts/
 │   ├── font_sources.py       Enumerate fonts from zip and/or directories
 │   ├── build_reverse_db.py   Rebuild reverse_db.json (zip and/or --fonts-dir)
@@ -225,16 +233,20 @@ pdf-cmap-fix/
 ├── docs/
 │   ├── approach.md           This file
 │   └── examples/
-│       ├── TI1751-01-001/    InDesign PDF + raw/patched/diff outputs
+│       ├── TI1751-01-001/    InDesign PDF + reference outputs
 │       │   ├── TI1751-01-001.pdf
 │       │   ├── TI1751-01-001.raw.txt
 │       │   ├── TI1751-01-001.patched.txt
-│       │   └── TI1751-01-001.diff.txt
-│       └── TI1055-01-001/    Word PDF + raw/patched/diff outputs
+│       │   ├── TI1751-01-001.diff.txt
+│       │   ├── TI1751-01-001.patched.pdf   (from CLI `-p` / `--patch-pdf`)
+│       │   └── TI1751-01-001.cmap-dump.json  (`--dump-cmap`; very large)
+│       └── TI1055-01-001/    Word PDF + reference outputs
 │           ├── TI1055-01-001.pdf
 │           ├── TI1055-01-001.raw.txt
 │           ├── TI1055-01-001.patched.txt
-│           └── TI1055-01-001.diff.txt
+│           ├── TI1055-01-001.diff.txt
+│           ├── TI1055-01-001.patched.pdf
+│           └── TI1055-01-001.cmap-dump.json
 ├── pyproject.toml
 ├── README.md
 └── .gitignore
@@ -242,14 +254,19 @@ pdf-cmap-fix/
 
 ## Rebuilding the Database
 
-Place `bodyig.zip` in `scripts/` and/or pass a checkout of
-[openpecha/tibetan-fonts](https://github.com/openpecha/tibetan-fonts):
+Place the font ZIPs under `scripts/` (and/or pass `--fonts-dir`)—see the root
+**README** for the recommended **`bodyig`** + **`tibetan-fonts-main`** +
+**`tibetan-fonts-private-main`** order:
 
 ```bash
 pip install fonttools
 python scripts/build_reverse_db.py --zip scripts/bodyig.zip
 python scripts/build_reverse_db.py --fonts-dir ../tibetan-fonts
-python scripts/build_reverse_db.py --zip scripts/bodyig.zip --fonts-dir ../tibetan-fonts -o pdf_cmap_fix/data/reverse_db.json
+python scripts/build_reverse_db.py \
+  --zip scripts/bodyig.zip \
+  --zip scripts/tibetan-fonts-main.zip \
+  --zip scripts/tibetan-fonts-private-main.zip \
+  -o pdf_cmap_fix/data/reverse_db.json
 ```
 
 If you omit `--zip` and `--fonts-dir`, the script defaults to `scripts/bodyig.zip`

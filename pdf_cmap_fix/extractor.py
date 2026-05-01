@@ -431,6 +431,21 @@ def _serialise_cmap_result(payload: dict[str, Any]) -> dict[str, Any]:
     return {"fonts": out_fonts, "stats": payload["stats"]}
 
 
+def _sanitise_json_utf8(obj: Any) -> Any:
+    """Replace lone UTF-16 surrogates so ``json`` output can be written as UTF-8."""
+
+    def _fix_str(s: str) -> str:
+        return "".join("\ufffd" if 0xD800 <= ord(c) <= 0xDFFF else c for c in s)
+
+    if isinstance(obj, str):
+        return _fix_str(obj)
+    if isinstance(obj, dict):
+        return {_fix_str(k) if isinstance(k, str) else k: _sanitise_json_utf8(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_sanitise_json_utf8(x) for x in obj]
+    return obj
+
+
 def _printable(s: str) -> str:
     return "".join(c if c >= " " else f"[{ord(c):02X}]" for c in s)
 
@@ -520,7 +535,7 @@ def main() -> None:
             if len(pdf_args) > 1:
                 out_json = out_json.parent / f"{out_json.stem}_{pdf_path.stem}{out_json.suffix}"
             payload = build_tounicode_dict(pdf_path, rev_db=rev_db)
-            serial = _serialise_cmap_result(payload)
+            serial = _sanitise_json_utf8(_serialise_cmap_result(payload))
             out_json.parent.mkdir(parents=True, exist_ok=True)
             out_json.write_text(json.dumps(serial, ensure_ascii=False, indent=2), encoding="utf-8")
             s = payload["stats"]

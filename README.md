@@ -88,6 +88,8 @@ pdf-cmap-fix --dump-cmap cmap.json document.pdf
 
 Large PDFs with **many** Type0 font objects can make `--dump-cmap` slow and the JSON huge; prefer [`build_tounicode_dict`](#build_tounicode_dict) in Python if you need to filter by font name or xref.
 
+On **Windows**, the default CLI prints Tibetan previews using the console encoding; if you see **`UnicodeEncodeError`**, switch the terminal to UTF-8 (for example `chcp 65001`) or call **`extract_pdf_text(..., verbose=False)`** from Python so nothing is printed to the console.
+
 ---
 
 ## Python API reference

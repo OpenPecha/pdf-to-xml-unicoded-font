@@ -7,4 +7,4 @@
 | [glossary-and-json.md](glossary-and-json.md) | Terms (Type0, GID, ToUnicode, …) and JSON shapes (`reverse_db.json`, API outputs) |
 | [font-inventory.md](font-inventory.md) | Full list of **962** normalised keys in the bundled `reverse_db.json` |
 | [blog.md](blog.md) | Notes / draft pointers for a public write-up |
-| [examples/](examples/) | Sample PDFs and reference outputs |
+| [examples/](examples/) | Sample PDFs; reference `.raw.txt` / `.patched.txt` / `.diff.txt`; optional `.patched.pdf` and `.cmap-dump.json` from CLI `-p` / `--dump-cmap` |
